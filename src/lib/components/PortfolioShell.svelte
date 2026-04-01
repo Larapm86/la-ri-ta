@@ -1,17 +1,18 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 
 	const NAME = 'Lara Perez';
 	const ROLE = 'Product & System Designer';
 
 	let { children } = $props();
 
-	/** Main copy visible after pixel curtain finishes. */
 	let contentVisible = $state(false);
-
-	let pixelCurtainCanvas: HTMLCanvasElement | undefined = $state();
-	let curtainRaf = 0;
 	let curtainVisible = $state(false);
+
+	/** Plain element ref (not $state) — reliable bind:this for canvas */
+	let canvasEl: HTMLCanvasElement | undefined = undefined;
+
+	let curtainRaf = 0;
 	let curtainRunId = 0;
 
 	function easeOutCubic(t: number): number {
@@ -25,11 +26,10 @@
 		return (n & 0xffffff) / 0x1000000;
 	}
 
-	function runPixelCurtain(canvasEl?: HTMLCanvasElement): Promise<void> {
+	function runPixelCurtain(canvas: HTMLCanvasElement): Promise<void> {
 		const myRun = curtainRunId;
 		return new Promise((resolve) => {
-			const canvas = canvasEl ?? pixelCurtainCanvas;
-			if (!canvas || typeof window === 'undefined') {
+			if (typeof window === 'undefined') {
 				resolve();
 				return;
 			}
@@ -41,7 +41,6 @@
 				return;
 			}
 
-			/** Mosaic cell size in CSS px — larger = chunkier transition. */
 			const CELL = 20;
 			const DISSOLVE_MS = 1180;
 			const VERT_BIAS = 0.46;
@@ -129,43 +128,47 @@
 
 		let cancelled = false;
 
-		const waitForCanvas = async () => {
-			await tick();
-			await tick();
-			await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
-			/* bind:this + first layout — single tick is often too early on mobile WebKit */
-			let el = pixelCurtainCanvas;
-			for (let i = 0; i < 8 && !el; i++) {
-				await tick();
-				await new Promise<void>((r) => requestAnimationFrame(() => r()));
-				el = pixelCurtainCanvas;
-			}
-			return el;
-		};
-
-		void (async () => {
-			if (cancelled) return;
-			curtainVisible = true;
-			await waitForCanvas();
-			if (cancelled) return;
-
-			const canvasEl = pixelCurtainCanvas;
-			const curtainPromise = runPixelCurtain(canvasEl ?? undefined);
-
-			const timeoutMs = 4000;
-			const timeout = new Promise<void>((resolve) => {
-				setTimeout(resolve, timeoutMs);
-			});
-
-			await Promise.race([curtainPromise, timeout]);
+		const failSafe = window.setTimeout(() => {
 			if (!cancelled) {
 				contentVisible = true;
 				curtainVisible = false;
 			}
-		})();
+		}, 5000);
+
+		const finish = () => {
+			window.clearTimeout(failSafe);
+			if (!cancelled) {
+				contentVisible = true;
+				curtainVisible = false;
+			}
+		};
+
+		const start = () => {
+			if (cancelled) return;
+			const canvas =
+				canvasEl ?? (document.querySelector('.portfolio__pixel-curtain') as HTMLCanvasElement | null);
+			if (!canvas) {
+				finish();
+				return;
+			}
+
+			curtainVisible = true;
+
+			void runPixelCurtain(canvas)
+				.catch(() => {
+					/* canvas may fail on strict environments */
+				})
+				.finally(finish);
+		};
+
+		/* Double rAF: layout + bind:this after first paint (mobile WebKit) */
+		requestAnimationFrame(() => {
+			requestAnimationFrame(start);
+		});
 
 		return () => {
 			cancelled = true;
+			window.clearTimeout(failSafe);
 			curtainRunId++;
 			cancelAnimationFrame(curtainRaf);
 			curtainVisible = false;
@@ -182,7 +185,7 @@
 	<canvas
 		class="portfolio__pixel-curtain"
 		class:portfolio__pixel-curtain--on={curtainVisible}
-		bind:this={pixelCurtainCanvas}
+		bind:this={canvasEl}
 		aria-hidden="true"
 	></canvas>
 
@@ -197,25 +200,24 @@
 		position: relative;
 	}
 
+	/* Hidden: tuck behind page — visibility:hidden can skip canvas compositing on iOS */
 	.portfolio__pixel-curtain {
 		position: fixed;
-		z-index: 48;
 		inset: 0;
+		z-index: -1;
 		width: 100%;
 		height: 100%;
 		max-width: 100%;
 		max-height: 100%;
 		pointer-events: none;
 		opacity: 0;
-		visibility: hidden;
-		/* iOS: promote layer so 2D draws show above page */
 		-webkit-transform: translateZ(0);
 		transform: translateZ(0);
 	}
 
 	.portfolio__pixel-curtain--on {
+		z-index: 48;
 		opacity: 1;
-		visibility: visible;
 	}
 
 	.portfolio__load-stack {
@@ -283,21 +285,23 @@
 		padding-bottom: var(--nav-pad-y);
 		opacity: 0;
 		pointer-events: none;
-		/* avoid visibility:hidden — WebKit can skip IO / layout for descendants before reveal */
 	}
 
+	/*
+	 * Opacity must not depend on @keyframes alone — if the animation fails on a GPU,
+	 * the page stays invisible forever. Ready = opaque immediately; motion = transform only.
+	 */
 	.main.main--ready {
+		opacity: 1;
 		pointer-events: auto;
 		animation: main-in 0.85s var(--ease-out-expo) forwards;
 	}
 
 	@keyframes main-in {
 		from {
-			opacity: 0;
 			transform: translateY(8px);
 		}
 		to {
-			opacity: 1;
 			transform: translateY(0);
 		}
 	}
@@ -305,7 +309,6 @@
 	@media (prefers-reduced-motion: reduce) {
 		.main.main--ready {
 			animation: none;
-			opacity: 1;
 		}
 
 		.portfolio__pixel-curtain {

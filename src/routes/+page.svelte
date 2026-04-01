@@ -40,6 +40,7 @@
 		document.addEventListener('visibilitychange', () => {
 			if (document.visibilityState === 'visible') scheduleWipeFlush();
 		});
+		window.addEventListener('load', () => scheduleWipeFlush(), { once: true });
 	}
 
 	function ensureWipeIntersectionObserver() {
