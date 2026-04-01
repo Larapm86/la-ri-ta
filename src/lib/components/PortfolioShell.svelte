@@ -25,16 +25,17 @@
 		return (n & 0xffffff) / 0x1000000;
 	}
 
-	function runPixelCurtain(): Promise<void> {
+	function runPixelCurtain(canvasEl?: HTMLCanvasElement): Promise<void> {
 		const myRun = curtainRunId;
 		return new Promise((resolve) => {
-			const canvas = pixelCurtainCanvas;
+			const canvas = canvasEl ?? pixelCurtainCanvas;
 			if (!canvas || typeof window === 'undefined') {
 				resolve();
 				return;
 			}
 
-			const ctx = canvas.getContext('2d');
+			let ctx = canvas.getContext('2d', { alpha: false });
+			if (!ctx) ctx = canvas.getContext('2d');
 			if (!ctx) {
 				resolve();
 				return;
@@ -46,9 +47,19 @@
 			const VERT_BIAS = 0.46;
 			const RAGGED = 0.055;
 
+			const readViewportCss = () => {
+				const vv = window.visualViewport;
+				let w = Math.round(vv?.width ?? window.innerWidth);
+				let h = Math.round(vv?.height ?? window.innerHeight);
+				if (w < 2 || h < 2) {
+					w = Math.max(w, Math.round(window.screen.width / (window.devicePixelRatio || 1)));
+					h = Math.max(h, Math.round(window.screen.height / (window.devicePixelRatio || 1)));
+				}
+				return { w: Math.max(2, w), h: Math.max(2, h) };
+			};
+
 			const paintSize = () => {
-				const w = window.innerWidth;
-				const h = window.innerHeight;
+				const { w, h } = readViewportCss();
 				const dpr = Math.min(window.devicePixelRatio || 1, 2);
 				canvas.width = Math.floor(w * dpr);
 				canvas.height = Math.floor(h * dpr);
@@ -118,17 +129,40 @@
 
 		let cancelled = false;
 
-		void tick().then(async () => {
+		const waitForCanvas = async () => {
+			await tick();
+			await tick();
+			await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+			/* bind:this + first layout — single tick is often too early on mobile WebKit */
+			let el = pixelCurtainCanvas;
+			for (let i = 0; i < 8 && !el; i++) {
+				await tick();
+				await new Promise<void>((r) => requestAnimationFrame(() => r()));
+				el = pixelCurtainCanvas;
+			}
+			return el;
+		};
+
+		void (async () => {
 			if (cancelled) return;
 			curtainVisible = true;
-			await tick();
+			await waitForCanvas();
 			if (cancelled) return;
-			await runPixelCurtain();
+
+			const canvasEl = pixelCurtainCanvas;
+			const curtainPromise = runPixelCurtain(canvasEl ?? undefined);
+
+			const timeoutMs = 4000;
+			const timeout = new Promise<void>((resolve) => {
+				setTimeout(resolve, timeoutMs);
+			});
+
+			await Promise.race([curtainPromise, timeout]);
 			if (!cancelled) {
 				contentVisible = true;
 				curtainVisible = false;
 			}
-		});
+		})();
 
 		return () => {
 			cancelled = true;
@@ -145,9 +179,12 @@
 		<p class="nav-rail__role portfolio__cell-role">{ROLE}</p>
 	</div>
 
-	{#if curtainVisible}
-		<canvas class="portfolio__pixel-curtain" bind:this={pixelCurtainCanvas} aria-hidden="true"></canvas>
-	{/if}
+	<canvas
+		class="portfolio__pixel-curtain"
+		class:portfolio__pixel-curtain--on={curtainVisible}
+		bind:this={pixelCurtainCanvas}
+		aria-hidden="true"
+	></canvas>
 
 	<main class="main" class:main--ready={contentVisible} aria-hidden={!contentVisible}>
 		{@render children()}
@@ -166,7 +203,19 @@
 		inset: 0;
 		width: 100%;
 		height: 100%;
+		max-width: 100%;
+		max-height: 100%;
 		pointer-events: none;
+		opacity: 0;
+		visibility: hidden;
+		/* iOS: promote layer so 2D draws show above page */
+		-webkit-transform: translateZ(0);
+		transform: translateZ(0);
+	}
+
+	.portfolio__pixel-curtain--on {
+		opacity: 1;
+		visibility: visible;
 	}
 
 	.portfolio__load-stack {
@@ -233,11 +282,12 @@
 		padding-top: calc(var(--nav-pad-y) + 3.5rem);
 		padding-bottom: var(--nav-pad-y);
 		opacity: 0;
-		visibility: hidden;
+		pointer-events: none;
+		/* avoid visibility:hidden — WebKit can skip IO / layout for descendants before reveal */
 	}
 
 	.main.main--ready {
-		visibility: visible;
+		pointer-events: auto;
 		animation: main-in 0.85s var(--ease-out-expo) forwards;
 	}
 

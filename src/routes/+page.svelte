@@ -23,6 +23,9 @@
 
 	let globalWipeListeners = false;
 
+	/** Mobile WebKit often under-delivers scroll events; IO tracks layout vs viewport reliably. */
+	let wipeIntersectionObserver: IntersectionObserver | null = null;
+
 	function ensureWipeScrollPipeline() {
 		if (globalWipeListeners || typeof window === 'undefined') return;
 		globalWipeListeners = true;
@@ -33,8 +36,22 @@
 		window.visualViewport?.addEventListener('scroll', s);
 		window.visualViewport?.addEventListener('resize', s);
 		window.addEventListener('orientationchange', s);
-		/* iOS: momentum / rubber-band; keeps progress in sync while finger moves */
 		window.addEventListener('touchmove', s, { passive: true });
+		document.addEventListener('visibilitychange', () => {
+			if (document.visibilityState === 'visible') scheduleWipeFlush();
+		});
+	}
+
+	function ensureWipeIntersectionObserver() {
+		if (wipeIntersectionObserver || typeof IntersectionObserver === 'undefined') return;
+		wipeIntersectionObserver = new IntersectionObserver(
+			() => scheduleWipeFlush(),
+			{
+				root: null,
+				rootMargin: '0px',
+				threshold: Array.from({ length: 101 }, (_, i) => i / 100)
+			}
+		);
 	}
 
 	function scrollRevealWipe(node: HTMLElement, params: WipeParams = {}) {
@@ -89,6 +106,8 @@
 
 		wipeSubscribers.add(update);
 		ensureWipeScrollPipeline();
+		ensureWipeIntersectionObserver();
+		wipeIntersectionObserver?.observe(node);
 
 		requestAnimationFrame(() => {
 			update();
@@ -112,6 +131,7 @@
 			},
 			destroy() {
 				ro?.disconnect();
+				wipeIntersectionObserver?.unobserve(node);
 				wipeSubscribers.delete(update);
 			}
 		};
