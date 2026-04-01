@@ -1,0 +1,58 @@
+/* Place SuisseIntl-*.woff2 from your Swiss Typefaces license in /static/fonts/ */
+@font-face {
+	font-family: "Suisse Int'l";
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url('/fonts/SuisseIntl-Regular.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: "Suisse Int'l";
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url('/fonts/SuisseIntl-Medium.woff2') format('woff2');
+}
+
+:root {
+	--color-bg: #ffffff;
+	--color-text: #1a1a1a;
+	--font-sans: "Suisse Int'l", "Helvetica Neue", Helvetica, Arial, sans-serif;
+	--ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+	--nav-pad-x: clamp(1rem, 4vw, 2.5rem);
+	--nav-pad-y: clamp(1rem, 2vh, 1.5rem);
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html {
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+body {
+	margin: 0;
+	min-height: 100vh;
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-family: var(--font-sans);
+	font-size: 0.8125rem;
+	font-weight: 400;
+	letter-spacing: 0.02em;
+	line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+}
