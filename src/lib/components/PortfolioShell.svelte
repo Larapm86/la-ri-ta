@@ -260,7 +260,7 @@
 		line-height: 1.2;
 		box-decoration-break: clone;
 		-webkit-box-decoration-break: clone;
-		text-shadow: 0 1px 0 rgb(255 255 255 / 0.5);
+		text-shadow: var(--nav-rail-shadow);
 	}
 
 	.nav-rail__name {
