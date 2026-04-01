@@ -139,6 +139,12 @@
 	let C: Record<string, string | boolean | null> = { ...THEME.light };
 	let themeT = 0;
 	let isDark = $state(false);
+	/** Matches CSS portrait gate: narrow viewport + portrait — game UI hidden until landscape */
+	let portraitGateActive = $state(
+		typeof globalThis !== 'undefined' &&
+			typeof matchMedia !== 'undefined' &&
+			matchMedia('(max-width: 768px) and (orientation: portrait)').matches
+	);
 
 	let canvas: HTMLCanvasElement | undefined = $state();
 	let ctxRef: CanvasRenderingContext2D | null = null;
@@ -316,6 +322,13 @@
 		fetchGame.startX = faceR ? womanX + 16 : womanX - 2;
 		fetchGame.ballX = fetchGame.startX;
 		fetchGame.ballY = WALK_Y - 12;
+	}
+
+	/** Touch/pen: rely on pointerdown + preventDefault — synthetic `click` is often lost on mobile. */
+	function onBallPointerDown(e: PointerEvent) {
+		if (e.pointerType === 'mouse') return;
+		e.preventDefault();
+		tryThrowBall();
 	}
 
 	function womanCenterX(): number {
@@ -1692,6 +1705,19 @@
 		if (mqTheme) isDark = mqTheme.matches;
 	}
 
+	function syncPortraitGate() {
+		if (typeof window === 'undefined') return;
+		const mq = window.matchMedia('(max-width: 768px) and (orientation: portrait)');
+		portraitGateActive = mq.matches;
+	}
+
+	onMount(() => {
+		syncPortraitGate();
+		const mqPortrait = window.matchMedia('(max-width: 768px) and (orientation: portrait)');
+		mqPortrait.addEventListener('change', syncPortraitGate);
+		return () => mqPortrait.removeEventListener('change', syncPortraitGate);
+	});
+
 	onMount(() => {
 		const c = canvas;
 		if (!c) return;
@@ -1735,74 +1761,97 @@
 	class:lara-bros--light={!isDark}
 	aria-label="Pixel city hub"
 >
-	<div class="lara-bros__frame">
-		<div
-			class="lara-bros__canvas-shell"
-			style="--hub-w: {W}px; --hub-h: {H}px;"
-		>
-			<canvas
-				bind:this={canvas}
-				class="lara-bros__canvas"
-				width={W}
-				height={H}
-				aria-label="World map"
-			></canvas>
-		</div>
+	<div
+		class="lara-bros__portrait-gate"
+		role="dialog"
+		aria-modal="true"
+		aria-hidden={!portraitGateActive}
+		aria-labelledby="lara-bros-rotate-title"
+	>
+		<span class="lara-bros__portrait-gate-icon" aria-hidden="true">↻</span>
+		<p id="lara-bros-rotate-title" class="lara-bros__portrait-gate-title">
+			Turn your device sideways
+		</p>
+		<p class="lara-bros__portrait-gate-hint">Landscape fits this scene and controls better.</p>
 	</div>
 
-	<div class="lara-bros__touch" aria-hidden="true">
-		<div class="lara-bros__touch-cluster">
-			<div class="lara-bros__touch-inline">
+	<div class="lara-bros__playfield" aria-hidden={portraitGateActive}>
+		<div class="lara-bros__frame">
+			<div
+				class="lara-bros__canvas-shell"
+				style="--hub-w: {W}px; --hub-h: {H}px;"
+			>
+				<canvas
+					bind:this={canvas}
+					class="lara-bros__canvas"
+					width={W}
+					height={H}
+					aria-label="World map"
+				></canvas>
+			</div>
+		</div>
+
+		<div class="lara-bros__touch" aria-hidden="true">
+			<div class="lara-bros__touch-cluster">
+				<div class="lara-bros__touch-inline">
+					<button
+						type="button"
+						class="lara-bros__pad-btn"
+						aria-label="Left"
+						onpointerdown={(e) => {
+							e.preventDefault();
+							if (introDone) keysHeld.left = true;
+						}}
+						onpointerup={() => (keysHeld.left = false)}
+						onpointercancel={() => (keysHeld.left = false)}
+						onpointerleave={() => (keysHeld.left = false)}
+					>
+						◀
+					</button>
+					<button
+						type="button"
+						class="lara-bros__pad-btn"
+						aria-label="Up"
+						onclick={() => {
+							if (introDone) handleVerticalAction(true);
+						}}
+					>
+						▲
+					</button>
+					<button
+						type="button"
+						class="lara-bros__pad-btn"
+						aria-label="Down"
+						onclick={() => {
+							if (introDone) handleVerticalAction(false);
+						}}
+					>
+						▼
+					</button>
+					<button
+						type="button"
+						class="lara-bros__pad-btn"
+						aria-label="Right"
+						onpointerdown={(e) => {
+							e.preventDefault();
+							if (introDone) keysHeld.right = true;
+						}}
+						onpointerup={() => (keysHeld.right = false)}
+						onpointercancel={() => (keysHeld.right = false)}
+						onpointerleave={() => (keysHeld.right = false)}
+					>
+						▶
+					</button>
+				</div>
 				<button
 					type="button"
-					class="lara-bros__pad-btn"
-					aria-label="Left"
-					onpointerdown={(e) => {
-						e.preventDefault();
-						if (introDone) keysHeld.left = true;
-					}}
-					onpointerup={() => (keysHeld.left = false)}
-					onpointercancel={() => (keysHeld.left = false)}
-					onpointerleave={() => (keysHeld.left = false)}
+					class="lara-bros__ball-btn"
+					onpointerdown={onBallPointerDown}
+					onclick={() => tryThrowBall()}
 				>
-					◀
-				</button>
-				<button
-					type="button"
-					class="lara-bros__pad-btn"
-					aria-label="Up"
-					onclick={() => {
-						if (introDone) handleVerticalAction(true);
-					}}
-				>
-					▲
-				</button>
-				<button
-					type="button"
-					class="lara-bros__pad-btn"
-					aria-label="Down"
-					onclick={() => {
-						if (introDone) handleVerticalAction(false);
-					}}
-				>
-					▼
-				</button>
-				<button
-					type="button"
-					class="lara-bros__pad-btn"
-					aria-label="Right"
-					onpointerdown={(e) => {
-						e.preventDefault();
-						if (introDone) keysHeld.right = true;
-					}}
-					onpointerup={() => (keysHeld.right = false)}
-					onpointercancel={() => (keysHeld.right = false)}
-					onpointerleave={() => (keysHeld.right = false)}
-				>
-					▶
+					Ball
 				</button>
 			</div>
-			<button type="button" class="lara-bros__ball-btn" onclick={() => tryThrowBall()}>Ball</button>
 		</div>
 	</div>
 </div>
@@ -1826,6 +1875,14 @@
 		transition: background 0.8s ease;
 	}
 
+	.lara-bros__playfield {
+		flex: 1;
+		min-height: 0;
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+	}
+
 	.lara-bros--light {
 		background: #c8d8e8;
 		color: #555;
@@ -1834,6 +1891,78 @@
 	.lara-bros--dark {
 		background: #0a0a1a;
 		color: #778;
+	}
+
+	/**
+	 * Phones in portrait: wide hub + controls are too cramped — ask for landscape.
+	 * Hidden in landscape and on viewports wide enough that portrait is still usable.
+	 */
+	.lara-bros__portrait-gate {
+		display: none;
+	}
+
+	@media (max-width: 768px) and (orientation: portrait) {
+		.lara-bros__portrait-gate {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 0.75rem;
+			position: fixed;
+			inset: 0;
+			z-index: 100;
+			box-sizing: border-box;
+			padding: max(1.25rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+				max(1.25rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+			text-align: center;
+			background: var(--color-bg);
+			color: var(--color-text);
+			font-family: var(--font-sans);
+			-webkit-tap-highlight-color: transparent;
+		}
+
+		.lara-bros__portrait-gate-icon {
+			font-size: clamp(2.5rem, 12vw, 3.5rem);
+			line-height: 1;
+			opacity: 0.85;
+			animation: lara-bros-rotate-nudge 2.4s ease-in-out infinite;
+		}
+
+		.lara-bros__portrait-gate-title {
+			margin: 0;
+			font-size: clamp(0.95rem, 4.2vw, 1.1rem);
+			font-weight: 500;
+			letter-spacing: 0.02em;
+			max-width: 16rem;
+		}
+
+		.lara-bros__portrait-gate-hint {
+			margin: 0;
+			font-size: clamp(0.75rem, 3.2vw, 0.875rem);
+			font-weight: 400;
+			line-height: 1.45;
+			opacity: 0.75;
+			max-width: 17rem;
+		}
+	}
+
+	@keyframes lara-bros-rotate-nudge {
+		0%,
+		100% {
+			transform: rotate(0deg);
+		}
+		40% {
+			transform: rotate(-12deg);
+		}
+		55% {
+			transform: rotate(12deg);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.lara-bros__portrait-gate-icon {
+			animation: none;
+		}
 	}
 
 	/* Wide logical canvas (--hub-w × --hub-h); center 500px hub is not squeezed vs CSS */
@@ -1856,12 +1985,29 @@
 		--hub-h: 620px;
 		box-sizing: border-box;
 		max-width: 100%;
-		max-height: calc(100dvh - 10rem);
-		width: min(100%, calc((100dvh - 10rem) * var(--hub-w) / var(--hub-h)));
+		--hub-chrome-y: 10rem;
+		max-height: calc(100dvh - var(--hub-chrome-y));
+		width: min(100%, calc((100dvh - var(--hub-chrome-y)) * var(--hub-w) / var(--hub-h)));
 		aspect-ratio: var(--hub-w) / var(--hub-h);
 		display: flex;
 		align-items: center;
 		justify-content: center;
+	}
+
+	/** Phone landscape: less vertical chrome so the wide map stays readable */
+	@media (max-width: 768px) and (orientation: landscape) {
+		.lara-bros {
+			padding-top: max(calc(var(--nav-pad-y) + 2.25rem), env(safe-area-inset-top));
+			padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
+		}
+
+		.lara-bros__canvas-shell {
+			--hub-chrome-y: 7rem;
+		}
+
+		.lara-bros__touch {
+			padding-top: 0.1rem;
+		}
 	}
 
 	.lara-bros__canvas {
@@ -1970,6 +2116,7 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
+		touch-action: manipulation;
 		-webkit-tap-highlight-color: transparent;
 	}
 
