@@ -1,73 +1,118 @@
 <script lang="ts">
 	/**
-	 * Sharp vertical wipe: left = full ink (#000), right = muted (#ccc).
-	 * --reveal 0…1 tracks scroll so each line progresses independently.
+	 * Muted base + black ink clipped by .reveal-line__ink-shell width (set in JS).
+	 * Avoids iOS/Android bugs with mask/clip-path + calc(var(--reveal)).
 	 */
 	type WipeParams = { staggerIndex?: number };
 
 	const LINE_STAGGER = 0.26;
+
+	/** One scroll/touch batch for all lines — many listeners on mobile WebKit can break updates. */
+	const wipeSubscribers = new Set<() => void>();
+	let wipeRaf = 0;
+
+	function flushWipeSubscribers() {
+		wipeRaf = 0;
+		for (const fn of wipeSubscribers) fn();
+	}
+
+	function scheduleWipeFlush() {
+		if (wipeRaf) return;
+		wipeRaf = requestAnimationFrame(flushWipeSubscribers);
+	}
+
+	let globalWipeListeners = false;
+
+	function ensureWipeScrollPipeline() {
+		if (globalWipeListeners || typeof window === 'undefined') return;
+		globalWipeListeners = true;
+		const s = () => scheduleWipeFlush();
+		window.addEventListener('scroll', s, { passive: true, capture: true });
+		document.documentElement.addEventListener('scroll', s, { passive: true });
+		window.addEventListener('resize', s);
+		window.visualViewport?.addEventListener('scroll', s);
+		window.visualViewport?.addEventListener('resize', s);
+		window.addEventListener('orientationchange', s);
+		/* iOS: momentum / rubber-band; keeps progress in sync while finger moves */
+		window.addEventListener('touchmove', s, { passive: true });
+	}
 
 	function scrollRevealWipe(node: HTMLElement, params: WipeParams = {}) {
 		const reduce =
 			typeof window !== 'undefined' &&
 			window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
+		const shell = () => node.querySelector<HTMLElement>('.reveal-line__ink-shell');
+		const ink = () => node.querySelector<HTMLElement>('.reveal-line__ink');
+
+		const syncInkWidth = () => {
+			const el = ink();
+			if (!el) return;
+			const w = node.getBoundingClientRect().width;
+			if (w > 0) el.style.width = `${w}px`;
+		};
+
 		if (reduce) {
-			node.style.setProperty('--reveal', '1');
+			requestAnimationFrame(() => {
+				const sh = shell();
+				if (sh) sh.style.width = '100%';
+				syncInkWidth();
+			});
 			return {};
 		}
 
 		let staggerIndex = params.staggerIndex ?? 0;
-		let ticking = false;
 
 		const update = () => {
+			syncInkWidth();
 			const rect = node.getBoundingClientRect();
-			// visualViewport matches mobile browser chrome; innerHeight alone can drift on iOS
 			const vv = window.visualViewport;
 			const vh = (vv?.height ?? window.innerHeight) || 1;
-			// Band: low on screen → muted; higher → full ink
 			const bandStart = vh * 0.88;
 			const bandEnd = vh * 0.2;
 			const top = rect.top;
 			let p = (bandStart - top) / (bandStart - bandEnd);
 			p -= staggerIndex * LINE_STAGGER;
 			p = Math.max(0, Math.min(1, p));
-			node.style.setProperty('--reveal', p.toFixed(4));
+			const sh = shell();
+			if (sh) sh.style.width = `${p * 100}%`;
 		};
 
-		const onScrollOrResize = () => {
-			if (ticking) return;
-			ticking = true;
+		const ro =
+			typeof ResizeObserver !== 'undefined'
+				? new ResizeObserver(() => {
+						syncInkWidth();
+						scheduleWipeFlush();
+					})
+				: null;
+		ro?.observe(node);
+
+		wipeSubscribers.add(update);
+		ensureWipeScrollPipeline();
+
+		requestAnimationFrame(() => {
+			update();
 			requestAnimationFrame(() => {
-				ticking = false;
 				update();
+				scheduleWipeFlush();
 			});
-		};
+		});
 
-		// First paint on mobile often has rect(0); defer + listen on visualViewport for iOS
-		const scheduleUpdate = () => {
-			onScrollOrResize();
-			requestAnimationFrame(() => {
-				requestAnimationFrame(onScrollOrResize);
+		if (typeof document !== 'undefined' && 'fonts' in document) {
+			void document.fonts.ready.then(() => {
+				syncInkWidth();
+				scheduleWipeFlush();
 			});
-		};
-		scheduleUpdate();
-
-		window.addEventListener('scroll', onScrollOrResize, { passive: true, capture: true });
-		window.addEventListener('resize', onScrollOrResize);
-		window.visualViewport?.addEventListener('scroll', onScrollOrResize);
-		window.visualViewport?.addEventListener('resize', onScrollOrResize);
+		}
 
 		return {
 			update(newParams: WipeParams) {
 				staggerIndex = newParams.staggerIndex ?? 0;
-				scheduleUpdate();
+				scheduleWipeFlush();
 			},
 			destroy() {
-				window.removeEventListener('scroll', onScrollOrResize, true);
-				window.removeEventListener('resize', onScrollOrResize);
-				window.visualViewport?.removeEventListener('scroll', onScrollOrResize);
-				window.visualViewport?.removeEventListener('resize', onScrollOrResize);
+				ro?.disconnect();
+				wipeSubscribers.delete(update);
 			}
 		};
 	}
@@ -87,56 +132,74 @@
 		<div class="home__lines home__lines--hero home__lines--first">
 			<div class="reveal-line" use:scrollRevealWipe={{ staggerIndex: 0 }}>
 				<span class="reveal-line__muted" aria-hidden="true">Selected work spans product systems,</span>
-				<span class="reveal-line__ink" aria-hidden="true">Selected work spans product systems,</span>
+				<div class="reveal-line__ink-shell" aria-hidden="true">
+					<span class="reveal-line__ink">Selected work spans product systems,</span>
+				</div>
 			</div>
 			<div class="reveal-line" use:scrollRevealWipe={{ staggerIndex: 1 }}>
 				<span class="reveal-line__muted" aria-hidden="true">design tooling, and narrative sites</span>
-				<span class="reveal-line__ink" aria-hidden="true">design tooling, and narrative sites</span>
+				<div class="reveal-line__ink-shell" aria-hidden="true">
+					<span class="reveal-line__ink">design tooling, and narrative sites</span>
+				</div>
 			</div>
 			<div class="reveal-line" use:scrollRevealWipe={{ staggerIndex: 2 }}>
 				<span class="reveal-line__muted" aria-hidden="true"
 					>for teams who care how things feel as much as how they ship.</span
 				>
-				<span class="reveal-line__ink" aria-hidden="true"
-					>for teams who care how things feel as much as how they ship.</span
-				>
+				<div class="reveal-line__ink-shell" aria-hidden="true">
+					<span class="reveal-line__ink">for teams who care how things feel as much as how they ship.</span>
+				</div>
 			</div>
 		</div>
 
 		<div class="home__lines home__lines--hero">
 			<div class="reveal-line" use:scrollRevealWipe={{ staggerIndex: 0 }}>
 				<span class="reveal-line__muted" aria-hidden="true">This space is a placeholder: case studies,</span>
-				<span class="reveal-line__ink" aria-hidden="true">This space is a placeholder: case studies,</span>
+				<div class="reveal-line__ink-shell" aria-hidden="true">
+					<span class="reveal-line__ink">This space is a placeholder: case studies,</span>
+				</div>
 			</div>
 			<div class="reveal-line" use:scrollRevealWipe={{ staggerIndex: 1 }}>
 				<span class="reveal-line__muted" aria-hidden="true">process notes, and experiments will land here</span>
-				<span class="reveal-line__ink" aria-hidden="true">process notes, and experiments will land here</span>
+				<div class="reveal-line__ink-shell" aria-hidden="true">
+					<span class="reveal-line__ink">process notes, and experiments will land here</span>
+				</div>
 			</div>
 			<div class="reveal-line" use:scrollRevealWipe={{ staggerIndex: 2 }}>
 				<span class="reveal-line__muted" aria-hidden="true">as they’re ready. Nothing below is final copy.</span>
-				<span class="reveal-line__ink" aria-hidden="true">as they’re ready. Nothing below is final copy.</span>
+				<div class="reveal-line__ink-shell" aria-hidden="true">
+					<span class="reveal-line__ink">as they’re ready. Nothing below is final copy.</span>
+				</div>
 			</div>
 		</div>
 
 		<div class="home__lines home__lines--hero">
 			<div class="reveal-line" use:scrollRevealWipe={{ staggerIndex: 0 }}>
 				<span class="reveal-line__muted" aria-hidden="true">If you’re looking for a collaborator on</span>
-				<span class="reveal-line__ink" aria-hidden="true">If you’re looking for a collaborator on</span>
+				<div class="reveal-line__ink-shell" aria-hidden="true">
+					<span class="reveal-line__ink">If you’re looking for a collaborator on</span>
+				</div>
 			</div>
 			<div class="reveal-line" use:scrollRevealWipe={{ staggerIndex: 1 }}>
 				<span class="reveal-line__muted" aria-hidden="true">discovery, IA, UI, or front-end craft,</span>
-				<span class="reveal-line__ink" aria-hidden="true">discovery, IA, UI, or front-end craft,</span>
+				<div class="reveal-line__ink-shell" aria-hidden="true">
+					<span class="reveal-line__ink">discovery, IA, UI, or front-end craft,</span>
+				</div>
 			</div>
 			<div class="reveal-line" use:scrollRevealWipe={{ staggerIndex: 2 }}>
 				<span class="reveal-line__muted" aria-hidden="true">say hello — the usual channels are fine.</span>
-				<span class="reveal-line__ink" aria-hidden="true">say hello — the usual channels are fine.</span>
+				<div class="reveal-line__ink-shell" aria-hidden="true">
+					<span class="reveal-line__ink">say hello — the usual channels are fine.</span>
+				</div>
 			</div>
 		</div>
 
 		<div class="home__lines home__lines--footer">
 			<div class="reveal-line reveal-line--small" use:scrollRevealWipe={{ staggerIndex: 0 }}>
 				<span class="reveal-line__muted" aria-hidden="true">— Mock block for scroll rhythm</span>
-				<span class="reveal-line__ink" aria-hidden="true">— Mock block for scroll rhythm</span>
+				<div class="reveal-line__ink-shell" aria-hidden="true">
+					<span class="reveal-line__ink">— Mock block for scroll rhythm</span>
+				</div>
 			</div>
 		</div>
 	</section>
@@ -176,7 +239,6 @@
 		justify-content: center;
 	}
 
-	/* First block sits low in the viewport */
 	.home__lines--first {
 		min-height: 100vh;
 		min-height: 100svh;
@@ -192,7 +254,6 @@
 	}
 
 	.reveal-line {
-		--reveal: 0;
 		position: relative;
 		display: block;
 		margin: 0;
@@ -203,6 +264,8 @@
 		line-height: 0.98;
 		text-align: left;
 		text-wrap: balance;
+		/* lets % height resolve for the ink shell on WebKit */
+		min-height: 0;
 	}
 
 	.reveal-line--small {
@@ -213,39 +276,29 @@
 		text-transform: uppercase;
 	}
 
-	.reveal-line__muted,
-	.reveal-line__ink {
+	.reveal-line__muted {
 		display: block;
 		width: 100%;
-	}
-
-	.reveal-line__muted {
 		color: #cccccc;
 	}
 
+	.reveal-line__ink-shell {
+		position: absolute;
+		left: 0;
+		top: 0;
+		bottom: 0;
+		width: 0%;
+		overflow: hidden;
+		pointer-events: none;
+	}
+
 	.reveal-line__ink {
+		display: block;
 		position: absolute;
 		left: 0;
 		top: 0;
 		color: #000000;
-		pointer-events: none;
-		/* iOS Safari: clip-path + calc(custom) is flaky; mask tracks the same edge reliably */
-		-webkit-mask-image: linear-gradient(
-			to right,
-			#fff 0,
-			#fff calc(var(--reveal, 0) * 100%),
-			transparent calc(var(--reveal, 0) * 100%)
-		);
-		mask-image: linear-gradient(
-			to right,
-			#fff 0,
-			#fff calc(var(--reveal, 0) * 100%),
-			transparent calc(var(--reveal, 0) * 100%)
-		);
-		-webkit-mask-size: 100% 100%;
-		mask-size: 100% 100%;
-		-webkit-mask-repeat: no-repeat;
-		mask-repeat: no-repeat;
-		transform: translateZ(0);
+		box-sizing: border-box;
+		/* width set in JS (px) to full line — must not be % of narrow shell */
 	}
 </style>
