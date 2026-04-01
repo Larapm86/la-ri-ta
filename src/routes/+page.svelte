@@ -5,7 +5,8 @@
 	 */
 	type WipeParams = { staggerIndex?: number };
 
-	const LINE_STAGGER = 0.26;
+	/** Small stagger — large values zeroed out lower lines (looked “empty” on short viewports). */
+	const LINE_STAGGER = 0.07;
 
 	/** One scroll/touch batch for all lines — many listeners on mobile WebKit can break updates. */
 	const wipeSubscribers = new Set<() => void>();
@@ -86,10 +87,13 @@
 			const rect = node.getBoundingClientRect();
 			const vv = window.visualViewport;
 			const vh = (vv?.height ?? window.innerHeight) || 1;
-			const bandStart = vh * 0.88;
-			const bandEnd = vh * 0.2;
 			const top = rect.top;
-			let p = (bandStart - top) / (bandStart - bandEnd);
+			/*
+			 * Old band (0.88vh) made p=0 for lines in the bottom of the screen — e.g. the first
+			 * block is flex-end in 100vh, so all you saw was #ccc (looked like a blank page).
+			 * Map line position across the full viewport: top at bottom edge → 0, past top → 1.
+			 */
+			let p = 1 - top / vh;
 			p -= staggerIndex * LINE_STAGGER;
 			p = Math.max(0, Math.min(1, p));
 			const sh = shell();
@@ -300,7 +304,8 @@
 	.reveal-line__muted {
 		display: block;
 		width: 100%;
-		color: #cccccc;
+		/* Readable when ink width is 0; old #ccc looked like empty UI on phones */
+		color: #737373;
 	}
 
 	.reveal-line__ink-shell {
@@ -308,7 +313,8 @@
 		left: 0;
 		top: 0;
 		bottom: 0;
-		width: 0%;
+		/* Default full ink before first JS tick; inline width from update() overrides */
+		width: 100%;
 		overflow: hidden;
 		pointer-events: none;
 	}
