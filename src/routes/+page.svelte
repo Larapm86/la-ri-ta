@@ -322,4 +322,10 @@
 		box-sizing: border-box;
 		/* width set in JS (px) to full line — must not be % of narrow shell */
 	}
+
+	@media (scripting: none) {
+		.reveal-line__ink-shell {
+			width: 100%;
+		}
+	}
 </style>

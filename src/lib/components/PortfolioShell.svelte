@@ -6,10 +6,14 @@
 
 	let { children } = $props();
 
-	let contentVisible = $state(false);
+	/**
+	 * Main must never depend on JS to become visible — iOS often paints before
+	 * onMount; gating opacity caused a permanently blank page when anything failed.
+	 * Curtain is decorative overlay only.
+	 */
+	let shellMounted = $state(false);
 	let curtainVisible = $state(false);
 
-	/** Plain element ref (not $state) — reliable bind:this for canvas */
 	let canvasEl: HTMLCanvasElement | undefined = undefined;
 
 	let curtainRaf = 0;
@@ -113,12 +117,13 @@
 	}
 
 	onMount(() => {
+		shellMounted = true;
+
 		const reduce =
 			typeof window !== 'undefined' &&
 			window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 		if (reduce) {
-			contentVisible = true;
 			return () => {
 				curtainRunId++;
 				cancelAnimationFrame(curtainRaf);
@@ -128,40 +133,31 @@
 
 		let cancelled = false;
 
-		const failSafe = window.setTimeout(() => {
-			if (!cancelled) {
-				contentVisible = true;
-				curtainVisible = false;
-			}
-		}, 5000);
-
-		const finish = () => {
-			window.clearTimeout(failSafe);
-			if (!cancelled) {
-				contentVisible = true;
-				curtainVisible = false;
-			}
+		const hideCurtain = () => {
+			if (!cancelled) curtainVisible = false;
 		};
+
+		const failSafe = window.setTimeout(hideCurtain, 8000);
 
 		const start = () => {
 			if (cancelled) return;
 			const canvas =
 				canvasEl ?? (document.querySelector('.portfolio__pixel-curtain') as HTMLCanvasElement | null);
 			if (!canvas) {
-				finish();
+				window.clearTimeout(failSafe);
 				return;
 			}
 
 			curtainVisible = true;
 
 			void runPixelCurtain(canvas)
-				.catch(() => {
-					/* canvas may fail on strict environments */
-				})
-				.finally(finish);
+				.catch(() => {})
+				.finally(() => {
+					window.clearTimeout(failSafe);
+					hideCurtain();
+				});
 		};
 
-		/* Double rAF: layout + bind:this after first paint (mobile WebKit) */
 		requestAnimationFrame(() => {
 			requestAnimationFrame(start);
 		});
@@ -189,7 +185,7 @@
 		aria-hidden="true"
 	></canvas>
 
-	<main class="main" class:main--ready={contentVisible} aria-hidden={!contentVisible}>
+	<main class="main" class:main--mounted={shellMounted}>
 		{@render children()}
 	</main>
 </div>
@@ -197,32 +193,33 @@
 <style>
 	.portfolio {
 		min-height: 100vh;
+		min-height: 100dvh;
 		position: relative;
 	}
 
-	/* Hidden: tuck behind page — visibility:hidden can skip canvas compositing on iOS */
+	/* Full-viewport overlay while animating; main stays visible underneath */
 	.portfolio__pixel-curtain {
 		position: fixed;
 		inset: 0;
-		z-index: -1;
 		width: 100%;
-		height: 100%;
+		height: 100vh;
+		height: 100dvh;
 		max-width: 100%;
-		max-height: 100%;
 		pointer-events: none;
 		opacity: 0;
+		z-index: -1;
 		-webkit-transform: translateZ(0);
 		transform: translateZ(0);
 	}
 
 	.portfolio__pixel-curtain--on {
-		z-index: 48;
+		z-index: 60;
 		opacity: 1;
 	}
 
 	.portfolio__load-stack {
 		position: fixed;
-		z-index: 55;
+		z-index: 70;
 		left: 0;
 		right: 0;
 		top: 0;
@@ -232,6 +229,7 @@
 		gap: 0.5rem;
 		box-sizing: border-box;
 		padding: var(--nav-pad-y) var(--nav-pad-x);
+		padding-top: max(var(--nav-pad-y), env(safe-area-inset-top));
 		pointer-events: none;
 	}
 
@@ -279,21 +277,17 @@
 
 	.main {
 		position: relative;
-		z-index: 1;
+		z-index: 5;
 		padding: 0 var(--nav-pad-x);
-		padding-top: calc(var(--nav-pad-y) + 3.5rem);
-		padding-bottom: var(--nav-pad-y);
-		opacity: 0;
-		pointer-events: none;
-	}
-
-	/*
-	 * Opacity must not depend on @keyframes alone — if the animation fails on a GPU,
-	 * the page stays invisible forever. Ready = opaque immediately; motion = transform only.
-	 */
-	.main.main--ready {
+		padding-left: max(var(--nav-pad-x), env(safe-area-inset-left));
+		padding-right: max(var(--nav-pad-x), env(safe-area-inset-right));
+		padding-top: max(calc(var(--nav-pad-y) + 3.5rem), env(safe-area-inset-top));
+		padding-bottom: max(var(--nav-pad-y), env(safe-area-inset-bottom));
 		opacity: 1;
 		pointer-events: auto;
+	}
+
+	.main.main--mounted {
 		animation: main-in 0.85s var(--ease-out-expo) forwards;
 	}
 
@@ -307,12 +301,12 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.main.main--ready {
+		.main.main--mounted {
 			animation: none;
 		}
 
 		.portfolio__pixel-curtain {
-			display: none;
+			display: none !important;
 		}
 	}
 </style>
