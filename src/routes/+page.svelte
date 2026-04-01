@@ -22,16 +22,17 @@
 
 		const update = () => {
 			const rect = node.getBoundingClientRect();
-			const vh = window.innerHeight || 1;
+			// visualViewport matches mobile browser chrome; innerHeight alone can drift on iOS
+			const vv = window.visualViewport;
+			const vh = (vv?.height ?? window.innerHeight) || 1;
 			// Band: low on screen → muted; higher → full ink
 			const bandStart = vh * 0.88;
 			const bandEnd = vh * 0.2;
 			const top = rect.top;
 			let p = (bandStart - top) / (bandStart - bandEnd);
-			// Later lines in the block need more scroll so fill reads top-to-bottom, line by line
 			p -= staggerIndex * LINE_STAGGER;
 			p = Math.max(0, Math.min(1, p));
-			node.style.setProperty('--reveal', String(p));
+			node.style.setProperty('--reveal', p.toFixed(4));
 		};
 
 		const onScrollOrResize = () => {
@@ -43,18 +44,30 @@
 			});
 		};
 
-		update();
-		window.addEventListener('scroll', onScrollOrResize, { passive: true });
+		// First paint on mobile often has rect(0); defer + listen on visualViewport for iOS
+		const scheduleUpdate = () => {
+			onScrollOrResize();
+			requestAnimationFrame(() => {
+				requestAnimationFrame(onScrollOrResize);
+			});
+		};
+		scheduleUpdate();
+
+		window.addEventListener('scroll', onScrollOrResize, { passive: true, capture: true });
 		window.addEventListener('resize', onScrollOrResize);
+		window.visualViewport?.addEventListener('scroll', onScrollOrResize);
+		window.visualViewport?.addEventListener('resize', onScrollOrResize);
 
 		return {
 			update(newParams: WipeParams) {
 				staggerIndex = newParams.staggerIndex ?? 0;
-				update();
+				scheduleUpdate();
 			},
 			destroy() {
-				window.removeEventListener('scroll', onScrollOrResize);
+				window.removeEventListener('scroll', onScrollOrResize, true);
 				window.removeEventListener('resize', onScrollOrResize);
+				window.visualViewport?.removeEventListener('scroll', onScrollOrResize);
+				window.visualViewport?.removeEventListener('resize', onScrollOrResize);
 			}
 		};
 	}
@@ -158,18 +171,21 @@
 		display: flex;
 		flex-direction: column;
 		gap: clamp(0.15em, 0.8vh, 0.45em);
+		min-height: min(85vh, 52rem);
 		min-height: min(85svh, 52rem);
 		justify-content: center;
 	}
 
 	/* First block sits low in the viewport */
 	.home__lines--first {
+		min-height: 100vh;
 		min-height: 100svh;
 		justify-content: flex-end;
 		padding-bottom: clamp(1.25rem, 5vh, 3.5rem);
 	}
 
 	.home__lines--footer {
+		min-height: 45vh;
 		min-height: 45svh;
 		justify-content: flex-end;
 		padding-bottom: clamp(2rem, 8vh, 5rem);
@@ -213,6 +229,23 @@
 		top: 0;
 		color: #000000;
 		pointer-events: none;
-		clip-path: inset(0 calc(100% * (1 - var(--reveal, 0))) 0 0);
+		/* iOS Safari: clip-path + calc(custom) is flaky; mask tracks the same edge reliably */
+		-webkit-mask-image: linear-gradient(
+			to right,
+			#fff 0,
+			#fff calc(var(--reveal, 0) * 100%),
+			transparent calc(var(--reveal, 0) * 100%)
+		);
+		mask-image: linear-gradient(
+			to right,
+			#fff 0,
+			#fff calc(var(--reveal, 0) * 100%),
+			transparent calc(var(--reveal, 0) * 100%)
+		);
+		-webkit-mask-size: 100% 100%;
+		mask-size: 100% 100%;
+		-webkit-mask-repeat: no-repeat;
+		mask-repeat: no-repeat;
+		transform: translateZ(0);
 	}
 </style>
