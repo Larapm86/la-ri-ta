@@ -1872,7 +1872,27 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 0;
+		overflow: hidden;
 		transition: background 0.8s ease;
+	}
+
+	/**
+	 * Phones: less top inset — nav is corner-aligned; we were double-counting vs canvas max-height.
+	 */
+	@media (max-width: 768px) {
+		.lara-bros {
+			padding-top: max(calc(var(--nav-pad-y) + 2.35rem), env(safe-area-inset-top));
+			padding-left: max(0.65rem, env(safe-area-inset-left));
+			padding-right: max(0.65rem, env(safe-area-inset-right));
+			padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
+		}
+	}
+
+	@media (max-width: 768px) and (orientation: landscape) {
+		.lara-bros {
+			padding-top: max(calc(var(--nav-pad-y) + 1.85rem), env(safe-area-inset-top));
+			padding-bottom: max(0.2rem, env(safe-area-inset-bottom));
+		}
 	}
 
 	.lara-bros__playfield {
@@ -1965,7 +1985,7 @@
 		}
 	}
 
-	/* Wide logical canvas (--hub-w × --hub-h); center 500px hub is not squeezed vs CSS */
+	/* Wide logical canvas (--hub-w × --hub-h); size to the flex frame — not 100dvh minus fudge (avoids double-count with padding). */
 	.lara-bros__frame {
 		flex: 1;
 		min-height: 0;
@@ -1976,8 +1996,14 @@
 		justify-content: center;
 		line-height: 0;
 		background: inherit;
-		padding: 6px;
+		padding: 4px;
 		box-sizing: border-box;
+	}
+
+	@supports (width: 1cqw) {
+		.lara-bros__frame {
+			container-type: size;
+		}
 	}
 
 	.lara-bros__canvas-shell {
@@ -1985,26 +2011,30 @@
 		--hub-h: 620px;
 		box-sizing: border-box;
 		max-width: 100%;
-		--hub-chrome-y: 10rem;
-		max-height: calc(100dvh - var(--hub-chrome-y));
-		width: min(100%, calc((100dvh - var(--hub-chrome-y)) * var(--hub-w) / var(--hub-h)));
-		aspect-ratio: var(--hub-w) / var(--hub-h);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 	}
 
-	/** Phone landscape: less vertical chrome so the wide map stays readable */
-	@media (max-width: 768px) and (orientation: landscape) {
-		.lara-bros {
-			padding-top: max(calc(var(--nav-pad-y) + 2.25rem), env(safe-area-inset-top));
-			padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
-		}
-
+	/** Fit aspect box inside the frame (actual space below nav + above controls). */
+	@supports (width: 1cqw) {
 		.lara-bros__canvas-shell {
-			--hub-chrome-y: 7rem;
+			width: min(100cqw, calc(100cqh * var(--hub-w) / var(--hub-h)));
+			aspect-ratio: var(--hub-w) / var(--hub-h);
+			height: auto;
 		}
+	}
 
+	/** Older browsers: single conservative dvh budget (padding already reserved above). */
+	@supports not (width: 1cqw) {
+		.lara-bros__canvas-shell {
+			max-height: calc(100svh - 5.25rem);
+			width: min(100%, calc((100svh - 5.25rem) * var(--hub-w) / var(--hub-h)));
+			aspect-ratio: var(--hub-w) / var(--hub-h);
+		}
+	}
+
+	@media (max-width: 768px) and (orientation: landscape) {
 		.lara-bros__touch {
 			padding-top: 0.1rem;
 		}
