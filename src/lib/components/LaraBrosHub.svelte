@@ -304,15 +304,14 @@
 
 	function tryThrowBall() {
 		if (!introDone || playerActivity.mode !== 'walk') return;
-		if (!canUseBallInEastPark()) return;
 		if (fetchGame.phase !== 'idle') return;
 		const faceR = playerFacingRight();
 		const cx = womanCenterX();
 		let landX: number;
 		if (faceR) {
-			landX = Math.min(cx + 110 + Math.floor(Math.random() * 56), RIGHT_PARK_RIGHT - 20);
+			landX = cx + 110 + Math.floor(Math.random() * 56);
 		} else {
-			landX = Math.max(cx - 110 - Math.floor(Math.random() * 56), RIGHT_PARK_LEFT + 20);
+			landX = cx - 110 - Math.floor(Math.random() * 56);
 		}
 		landX = Math.max(X_MIN + 8, Math.min(X_MAX - 8, landX));
 		fetchGame.phase = 'ball';
