@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 
 	// ═══ Center 500px = original hub (unscaled pixel art); wings only add margin ═══
 	const HUB_CORE_W = 500;
@@ -1602,13 +1601,6 @@
 		raf = requestAnimationFrame(tick);
 	}
 
-	function tryEnter() {
-		if (!introDone) return;
-		if (playerActivity.mode === 'bike') return;
-		const h = houseAtWoman();
-		if (h !== null) void goto(`/house/${h + 1}`);
-	}
-
 	function handleVerticalAction(up: boolean) {
 		if (!introDone) return;
 
@@ -1626,11 +1618,6 @@
 				/** Standing left of dropped bike */
 				womanX = Math.round(bx - 28);
 			}
-			return;
-		}
-
-		if (up && houseAtWoman() !== null) {
-			tryEnter();
 			return;
 		}
 
