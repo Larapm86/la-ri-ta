@@ -1774,69 +1774,76 @@
 					height={H}
 					aria-label="World map"
 				></canvas>
-			</div>
-		</div>
-
-		<div class="lara-bros__touch" aria-hidden="true">
-			<div class="lara-bros__touch-cluster">
-				<div class="lara-bros__touch-inline">
-					<button
-						type="button"
-						class="lara-bros__pad-btn"
-						aria-label="Left"
-						onpointerdown={(e) => {
-							e.preventDefault();
-							if (introDone) keysHeld.left = true;
-						}}
-						onpointerup={() => (keysHeld.left = false)}
-						onpointercancel={() => (keysHeld.left = false)}
-						onpointerleave={() => (keysHeld.left = false)}
-					>
-						◀
-					</button>
-					<button
-						type="button"
-						class="lara-bros__pad-btn"
-						aria-label="Up"
-						onclick={() => {
-							if (introDone) handleVerticalAction(true);
-						}}
-					>
-						▲
-					</button>
-					<button
-						type="button"
-						class="lara-bros__pad-btn"
-						aria-label="Down"
-						onclick={() => {
-							if (introDone) handleVerticalAction(false);
-						}}
-					>
-						▼
-					</button>
-					<button
-						type="button"
-						class="lara-bros__pad-btn"
-						aria-label="Right"
-						onpointerdown={(e) => {
-							e.preventDefault();
-							if (introDone) keysHeld.right = true;
-						}}
-						onpointerup={() => (keysHeld.right = false)}
-						onpointercancel={() => (keysHeld.right = false)}
-						onpointerleave={() => (keysHeld.right = false)}
-					>
-						▶
-					</button>
+				<div class="lara-bros__touch" aria-hidden="true">
+					<div class="lara-bros__touch-cluster">
+						<div class="lara-bros__touch-inline">
+							<button
+								type="button"
+								class="lara-bros__pad-btn lara-bros__pad-btn--left"
+								aria-label="Left"
+								onpointerdown={(e) => {
+									e.preventDefault();
+									if (introDone) keysHeld.left = true;
+								}}
+								onpointerup={() => (keysHeld.left = false)}
+								onpointercancel={() => (keysHeld.left = false)}
+								onpointerleave={() => (keysHeld.left = false)}
+							>
+								<svg viewBox="0 0 24 24" aria-hidden="true" class="lara-bros__icon">
+									<path d="M14.5 4.5L6.5 12L14.5 19.5V4.5Z" fill="currentColor"></path>
+								</svg>
+							</button>
+							<button
+								type="button"
+								class="lara-bros__pad-btn lara-bros__pad-btn--up"
+								aria-label="Up"
+								onclick={() => {
+									if (introDone) handleVerticalAction(true);
+								}}
+							>
+								<svg viewBox="0 0 24 24" aria-hidden="true" class="lara-bros__icon">
+									<path d="M4.5 14.5L12 6.5L19.5 14.5H4.5Z" fill="currentColor"></path>
+								</svg>
+							</button>
+							<button
+								type="button"
+								class="lara-bros__ball-btn lara-bros__ball-btn--center"
+								onpointerdown={onBallPointerDown}
+								onclick={() => tryThrowBall()}
+							>
+								Ball
+							</button>
+							<button
+								type="button"
+								class="lara-bros__pad-btn lara-bros__pad-btn--down"
+								aria-label="Down"
+								onclick={() => {
+									if (introDone) handleVerticalAction(false);
+								}}
+							>
+								<svg viewBox="0 0 24 24" aria-hidden="true" class="lara-bros__icon">
+									<path d="M4.5 9.5H19.5L12 17.5L4.5 9.5Z" fill="currentColor"></path>
+								</svg>
+							</button>
+							<button
+								type="button"
+								class="lara-bros__pad-btn lara-bros__pad-btn--right"
+								aria-label="Right"
+								onpointerdown={(e) => {
+									e.preventDefault();
+									if (introDone) keysHeld.right = true;
+								}}
+								onpointerup={() => (keysHeld.right = false)}
+								onpointercancel={() => (keysHeld.right = false)}
+								onpointerleave={() => (keysHeld.right = false)}
+							>
+								<svg viewBox="0 0 24 24" aria-hidden="true" class="lara-bros__icon">
+									<path d="M9.5 4.5L17.5 12L9.5 19.5V4.5Z" fill="currentColor"></path>
+								</svg>
+							</button>
+						</div>
+					</div>
 				</div>
-				<button
-					type="button"
-					class="lara-bros__ball-btn"
-					onpointerdown={onBallPointerDown}
-					onclick={() => tryThrowBall()}
-				>
-					Ball
-				</button>
 			</div>
 		</div>
 	</div>
@@ -1851,7 +1858,7 @@
 		bottom: 0;
 		z-index: 4;
 		box-sizing: border-box;
-		padding-top: max(calc(var(--nav-pad-y) + 3.5rem), env(safe-area-inset-top));
+		padding-top: max(var(--nav-pad-y), env(safe-area-inset-top));
 		padding-left: max(var(--nav-pad-x), env(safe-area-inset-left));
 		padding-right: max(var(--nav-pad-x), env(safe-area-inset-right));
 		padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
@@ -1867,7 +1874,7 @@
 	 */
 	@media (max-width: 768px) {
 		.lara-bros {
-			padding-top: max(calc(var(--nav-pad-y) + 2.35rem), env(safe-area-inset-top));
+			padding-top: max(0.5rem, env(safe-area-inset-top));
 			padding-left: max(0.65rem, env(safe-area-inset-left));
 			padding-right: max(0.65rem, env(safe-area-inset-right));
 			padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
@@ -1876,7 +1883,7 @@
 
 	@media (max-width: 768px) and (orientation: landscape) {
 		.lara-bros {
-			padding-top: max(calc(var(--nav-pad-y) + 1.85rem), env(safe-area-inset-top));
+			padding-top: max(0.35rem, env(safe-area-inset-top));
 			padding-bottom: max(0.2rem, env(safe-area-inset-bottom));
 		}
 	}
@@ -1971,7 +1978,7 @@
 		}
 	}
 
-	/* Wide logical canvas (--hub-w × --hub-h); size to the flex frame — not 100dvh minus fudge (avoids double-count with padding). */
+	/* Frame fills available site space; controls overlay inside this frame. */
 	.lara-bros__frame {
 		flex: 1;
 		min-height: 0;
@@ -1984,39 +1991,29 @@
 		background: inherit;
 		padding: 4px;
 		box-sizing: border-box;
-	}
-
-	@supports (width: 1cqw) {
-		.lara-bros__frame {
-			container-type: size;
-		}
+		container-type: size;
 	}
 
 	.lara-bros__canvas-shell {
 		--hub-w: 1300px;
 		--hub-h: 620px;
 		box-sizing: border-box;
-		max-width: 100%;
+		aspect-ratio: var(--hub-w) / var(--hub-h);
+		width: min(100cqw, calc(100cqh * var(--hub-w) / var(--hub-h)));
+		height: auto;
+		max-height: 100%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		position: relative;
+		overflow: hidden;
 	}
 
-	/** Fit aspect box inside the frame (actual space below nav + above controls). */
-	@supports (width: 1cqw) {
-		.lara-bros__canvas-shell {
-			width: min(100cqw, calc(100cqh * var(--hub-w) / var(--hub-h)));
-			aspect-ratio: var(--hub-w) / var(--hub-h);
-			height: auto;
-		}
-	}
-
-	/** Older browsers: single conservative dvh budget (padding already reserved above). */
 	@supports not (width: 1cqw) {
 		.lara-bros__canvas-shell {
-			max-height: calc(100svh - 5.25rem);
-			width: min(100%, calc((100svh - 5.25rem) * var(--hub-w) / var(--hub-h)));
-			aspect-ratio: var(--hub-w) / var(--hub-h);
+			width: 100%;
+			height: auto;
+			max-height: 100%;
 		}
 	}
 
@@ -2043,42 +2040,65 @@
 	 */
 	.lara-bros__touch {
 		--touch-fs: clamp(0.28rem, 2.6vw, 0.45rem);
-		--pad-size: clamp(2.25rem, 7vw, 3rem);
-		/** Arrow glyphs in pad squares (independent from box size) */
-		--pad-arrow-fs: clamp(0.48rem, 2.5vw, 0.68rem);
-		flex-shrink: 0;
+		--pad-size: clamp(1.7rem, 5.4vw, 2.3rem);
+		--pad-arrow-size: clamp(0.72rem, 3.8vw, 1rem);
+		--ball-fs: clamp(0.23rem, 1.9vw, 0.38rem);
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
 		width: 100%;
 		max-width: 100%;
 		box-sizing: border-box;
 		display: flex;
 		flex-direction: column;
-		align-items: center;
+		align-items: flex-end;
 		justify-content: center;
-		padding-top: clamp(0.2rem, 1.2vw, 0.5rem);
+		padding: 0 max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) 0;
+		pointer-events: none;
 	}
 
 	.lara-bros__touch-cluster {
 		width: 100%;
 		max-width: 100%;
-		display: grid;
-		grid-template-columns: 1fr auto 1fr;
+		display: flex;
+		justify-content: flex-end;
 		align-items: center;
 		box-sizing: border-box;
 		padding-left: max(0, env(safe-area-inset-left));
-		padding-right: max(0, env(safe-area-inset-right));
-		column-gap: clamp(0.35rem, 2vw, 0.75rem);
+		padding-right: 0;
 	}
 
-	/** D-pad centered in the middle column */
 	.lara-bros__touch-inline {
-		grid-column: 2;
-		justify-self: center;
-		display: flex;
-		flex-direction: row;
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: repeat(3, var(--pad-size));
+		grid-template-rows: repeat(3, var(--pad-size));
 		align-items: center;
 		justify-content: center;
 		gap: clamp(0.35rem, 2vw, 0.55rem);
+	}
+
+	.lara-bros__pad-btn--left {
+		grid-column: 1;
+		grid-row: 2;
+	}
+	.lara-bros__pad-btn--up {
+		grid-column: 2;
+		grid-row: 1;
+	}
+	.lara-bros__pad-btn--down {
+		grid-column: 2;
+		grid-row: 3;
+	}
+	.lara-bros__pad-btn--right {
+		grid-column: 3;
+		grid-row: 2;
+	}
+
+	.lara-bros__icon {
+		width: var(--pad-arrow-size);
+		height: var(--pad-arrow-size);
+		display: block;
 	}
 
 	.lara-bros__pad-btn {
@@ -2094,14 +2114,12 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		font-family: 'Press Start 2P', ui-monospace, monospace;
-		font-size: var(--pad-arrow-fs);
-		line-height: 1;
 		background: linear-gradient(180deg, #f0e6d8, #c8b8a0);
 		color: #2a1810;
 		box-shadow:
 			inset 2px 2px 0 rgba(255, 255, 255, 0.4),
 			0 clamp(1px, 0.35vw, 3px) 0 #5a3820;
+		pointer-events: auto;
 		-webkit-tap-highlight-color: transparent;
 	}
 
@@ -2113,32 +2131,36 @@
 	}
 
 	.lara-bros__ball-btn {
-		grid-column: 3;
-		justify-self: end;
+		justify-self: center;
 		align-self: center;
 		font-family: 'Press Start 2P', ui-monospace, monospace;
-		font-size: var(--touch-fs);
-		min-height: var(--pad-size);
-		height: auto;
-		padding: clamp(0.35rem, 2vw, 0.5rem) clamp(0.85rem, 4vw, 1.15rem);
+		font-size: var(--ball-fs);
+		height: calc(var(--pad-size) * 1.16);
+		padding: 0 clamp(0.45rem, 2.3vw, 0.62rem);
 		border: 2px solid #2a1810;
 		border-radius: 9999px;
-		background: linear-gradient(180deg, #f0e6d8, #c8b8a0);
-		color: #2a1810;
+		background: linear-gradient(180deg, #3a2618, #20140c);
+		color: #f6eee2;
 		cursor: pointer;
 		box-shadow:
-			inset 2px 2px 0 rgba(255, 255, 255, 0.35),
-			0 clamp(1px, 0.35vw, 3px) 0 #5a3820;
+			inset 2px 2px 0 rgba(255, 255, 255, 0.14),
+			0 clamp(1px, 0.35vw, 3px) 0 #120b07;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		touch-action: manipulation;
+		pointer-events: auto;
 		-webkit-tap-highlight-color: transparent;
+	}
+
+	.lara-bros__ball-btn--center {
+		grid-column: 2;
+		grid-row: 2;
 	}
 
 	.lara-bros__ball-btn:active {
 		transform: translateY(1px);
-		box-shadow: 0 1px 0 #5a3820;
+		box-shadow: 0 1px 0 #120b07;
 	}
 
 	.lara-bros--dark .lara-bros__pad-btn {
@@ -2157,33 +2179,35 @@
 	}
 
 	.lara-bros--dark .lara-bros__ball-btn {
-		border-color: #5c5868;
-		background: linear-gradient(180deg, #383448, #242028);
-		color: #d4d0e4;
+		border-color: #2a1810;
+		background: linear-gradient(180deg, #d8d1e8, #b9b2cc);
+		color: #1b1726;
 		box-shadow:
-			inset 2px 2px 0 rgba(255, 255, 255, 0.09),
-			0 clamp(1px, 0.35vw, 3px) 0 #0c0a12;
+			inset 2px 2px 0 rgba(255, 255, 255, 0.32),
+			0 clamp(1px, 0.35vw, 3px) 0 #3a3548;
 	}
 
 	.lara-bros--dark .lara-bros__ball-btn:active {
-		box-shadow: 0 1px 0 #0c0a12;
+		box-shadow: 0 1px 0 #3a3548;
 	}
 
 	/** Mobile: smaller hit targets, larger arrow + label type for readability */
 	@media (max-width: 768px) {
 		.lara-bros__touch {
-			--pad-size: clamp(1.48rem, 9.2vw, 1.95rem);
-			--pad-arrow-fs: clamp(0.54rem, 4.6vw, 0.78rem);
+			--pad-size: clamp(1.2rem, 7.2vw, 1.55rem);
+			--pad-arrow-size: clamp(0.8rem, 5vw, 1.05rem);
 			--touch-fs: clamp(0.38rem, 3.6vw, 0.52rem);
+			--ball-fs: clamp(0.18rem, 2.8vw, 0.31rem);
 		}
 	}
 
 	/** Short desktop / tablet window only — avoids clobbering mobile landscape typography */
 	@media (max-height: 520px) and (min-width: 769px) {
 		.lara-bros__touch {
-			--pad-size: clamp(1.85rem, 6.5vh, 2.55rem);
-			--pad-arrow-fs: clamp(0.46rem, 2.2vw, 0.64rem);
+			--pad-size: clamp(1.5rem, 5.2vh, 2rem);
+			--pad-arrow-size: clamp(0.66rem, 2.8vh, 0.9rem);
 			--touch-fs: clamp(0.24rem, 2.2vh, 0.4rem);
+			--ball-fs: clamp(0.18rem, 1.8vh, 0.3rem);
 		}
 	}
 </style>
